@@ -49,7 +49,7 @@ export async function handleAutoReply(sock: any, chatId: string, message: any, u
 
 export default {
     command: 'autoreply',
-    aliases: ['ar', 'aiar'],
+    aliases: ['ar', 'sam'],
     category: 'owner',
     description: 'Toggle Samyaza AI auto-reply system',
     usage: '.autoreply <on|off>',
