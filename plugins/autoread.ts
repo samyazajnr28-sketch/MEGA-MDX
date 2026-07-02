@@ -10,20 +10,18 @@ const MYSQL_URL = process.env.MYSQL_URL;
 const SQLITE_URL = process.env.DB_URL;
 const HAS_DB = !!(MONGO_URL || POSTGRES_URL || MYSQL_URL || SQLITE_URL);
 
-
 const configPath = dataFile('autoread.json');
 
 async function initConfig() {
+    const defaultConfig = { dm: false, groups: false };
     if (HAS_DB) {
         const config = await store.getSetting('global', 'autoread');
-        return config || { enabled: false };
+        return config || defaultConfig;
     } else {
         if (!fs.existsSync(configPath)) {
             const dataDir = path.dirname(configPath);
-            if (!fs.existsSync(dataDir)) {
-                fs.mkdirSync(dataDir, { recursive: true });
-            }
-            fs.writeFileSync(configPath, JSON.stringify({ enabled: false }, null, 2));
+            if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+            fs.writeFileSync(configPath, JSON.stringify(defaultConfig, null, 2));
         }
         return JSON.parse(fs.readFileSync(configPath, "utf-8"));
     }
@@ -37,85 +35,47 @@ async function saveConfig(config: any) {
     }
 }
 
-async function isAutoreadEnabled() {
+async function isAutoreadEnabled(isGroup: boolean) {
     try {
         const config = await initConfig();
-        return config.enabled;
-    } catch(error: any) {
-        console.error('Error checking autoread status:', error);
+        return isGroup ? config.groups : config.dm;
+    } catch {
         return false;
     }
 }
 
 function isBotMentionedInMessage(message: any, botNumber: any) {
     if (!message.message) return false;
-
-    const messageTypes = [
-        'extendedTextMessage', 'imageMessage', 'videoMessage', 'stickerMessage',
-        'documentMessage', 'audioMessage', 'contactMessage', 'locationMessage'
-    ];
-
-    for (const type of messageTypes) {
-        if (message.message[type]?.contextInfo?.mentionedJid) {
-            const mentionedJid = message.message[type].contextInfo.mentionedJid;
-            if (mentionedJid.some((jid: any) => jid === botNumber)) {
-                return true;
-            }
-        }
-    }
-
-    const textContent =
-        message.message.conversation ||
-        message.message.extendedTextMessage?.text ||
-        message.message.imageMessage?.caption ||
-        message.message.videoMessage?.caption || '';
-
+    const textContent = message.message.conversation || message.message.extendedTextMessage?.text || '';
     if (textContent) {
         const botUsername = botNumber.split('@')[0];
-        if (textContent.includes(`@${botUsername}`)) {
-            return true;
-        }
-
-        const botNames = [global.botname?.toLowerCase(), 'bot', 'mega', 'mega bot'];
-        const words = textContent.toLowerCase().split(/\s+/);
-        if (botNames.some(name => words.includes(name))) {
-            return true;
-        }
+        if (textContent.includes(`@${botUsername}`)) return true;
     }
-
     return false;
 }
 
 export async function handleAutoread(sock: any, message: any) {
     try {
         const ghostMode = await store.getSetting('global', 'stealthMode');
-        if (ghostMode && ghostMode.enabled) {
-            console.log('👻 Stealth mode active - skipping read receipt');
-            return false;
-        }
-    } catch(err: any) {
-    }
+        if (ghostMode?.enabled) return false;
+    } catch {}
 
-    const enabled = await isAutoreadEnabled();
-    if (enabled) {
+    const remoteJid = message.key.remoteJid || '';
+    const isGroup = remoteJid.endsWith('@g.us');
+    
+    if (await isAutoreadEnabled(isGroup)) {
         const botNumber = sock.user.id.split(':')[0] + '@s.whatsapp.net';
+        if (isBotMentionedInMessage(message, botNumber)) return false;
 
-        const isBotMentioned = isBotMentionedInMessage(message, botNumber);
-        if (isBotMentioned) {
-            return false;
-        } else {
-            try {
-                const key = {
-                    remoteJid: message.key.remoteJid,
-                    id: message.key.id,
-                    participant: message.key.participant
-                };
-                await sock.readMessages([key]);
-                return true;
-            } catch(error: any) {
-                console.error('Error marking message as read:', error);
-                return false;
-            }
+        try {
+            await sock.readMessages([{
+                remoteJid: message.key.remoteJid,
+                id: message.key.id,
+                participant: message.key.participant
+            }]);
+            return true;
+        } catch (error) {
+            console.error('Error marking as read:', error);
         }
     }
     return false;
@@ -123,94 +83,26 @@ export async function handleAutoread(sock: any, message: any) {
 
 export default {
     command: 'autoread',
-    aliases: ['read', 'autoreadmsg'],
+    aliases: ['read'],
     category: 'owner',
-    description: 'Toggle automatic message reading (blue ticks)',
-    usage: '.autoread <on|off>',
+    description: 'Toggle autoread for DM or Groups',
+    usage: '.autoread <dm|groups> <on|off>',
     ownerOnly: true,
 
     async handler(sock: any, message: any, args: any, context: BotContext) {
         const chatId = context.chatId || message.key.remoteJid;
-        const channelInfo = context.channelInfo || {};
+        const config = await initConfig();
+        const [target, state] = args;
 
-        try {
-            const config = await initConfig();
-            const action = args[0]?.toLowerCase();
-
-            if (!action) {
-                const ghostMode = await store.getSetting('global', 'stealthMode');
-                const ghostActive = ghostMode && ghostMode.enabled;
-
-                await sock.sendMessage(chatId, {
-                    text: `*📖 AUTOREAD STATUS*\n\n` +
-                          `*Current Status:* ${config.enabled ? '✅ Enabled' : '❌ Disabled'}\n` +
-                          `*Stealth Mode:* ${ghostActive ? '👻 Active (overrides autoread)' : '❌ Inactive'}\n` +
-                          `*Storage:* ${HAS_DB ? 'Database' : 'File System'}\n\n` +
-                          `*Commands:*\n` +
-                          `• \`.autoread on\` - Enable auto-read\n` +
-                          `• \`.autoread off\` - Disable auto-read\n\n` +
-                          `*What it does:*\n` +
-                          `When enabled, the bot automatically marks all messages as read (blue ticks).\n\n` +
-                          `*Note:* Ghost mode takes priority over autoread. If ghost mode is active, no read receipts will be sent.`,
-                    ...channelInfo
-                }, { quoted: message });
-                return;
-            }
-
-            if (action === 'on' || action === 'enable') {
-                if (config.enabled) {
-                    await sock.sendMessage(chatId, {
-                        text: '⚠️ *Autoread is already enabled*',
-                        ...channelInfo
-                    }, { quoted: message });
-                    return;
-                }
-                config.enabled = true;
-                await saveConfig(config);
-
-                const ghostMode = await store.getSetting('global', 'stealthMode');
-                const ghostActive = ghostMode && ghostMode.enabled;
-
-                await sock.sendMessage(chatId, {
-                    text: `✅ *Auto-read enabled!*\n\nAll messages will now be automatically marked as read.${ghostActive ? '\n\n⚠️ *Note:* Ghost mode is currently active and will override autoread.' : ''}`,
-                    ...channelInfo
-                }, { quoted: message });
-
-            } else if (action === 'off' || action === 'disable') {
-                if (!config.enabled) {
-                    await sock.sendMessage(chatId, {
-                        text: '⚠️ *Autoread is already disabled*',
-                        ...channelInfo
-                    }, { quoted: message });
-                    return;
-                }
-                config.enabled = false;
-                await saveConfig(config);
-
-                await sock.sendMessage(chatId, {
-                    text: '❌ *Auto-read disabled!*\n\nMessages will no longer be automatically marked as read.',
-                    ...channelInfo
-                }, { quoted: message });
-
-            } else {
-                await sock.sendMessage(chatId, {
-                    text: '❌ *Invalid option!*\n\nUse: `.autoread on/off`',
-                    ...channelInfo
-                }, { quoted: message });
-            }
-
-        } catch(error: any) {
-            console.error('Error in autoread command:', error);
-            await sock.sendMessage(chatId, {
-                text: '❌ *Error processing command!*',
-                ...channelInfo
-            }, { quoted: message });
+        if (!target || !state) {
+            await sock.sendMessage(chatId, { text: `*📖 AUTOREAD CONFIG*\n\nDM: ${config.dm ? '✅' : '❌'}\nGroups: ${config.groups ? '✅' : '❌'}\n\nUsage: .autoread <dm|groups> <on|off>` }, { quoted: message });
+            return;
         }
-    },
 
-    isAutoreadEnabled,
-    isBotMentionedInMessage,
-    handleAutoread
+        if (target === 'dm' || target === 'groups') {
+            config[target] = (state === 'on');
+            await saveConfig(config);
+            await sock.sendMessage(chatId, { text: `✅ Autoread for ${target} set to ${state}` }, { quoted: message });
+        }
+    }
 };
-
-
