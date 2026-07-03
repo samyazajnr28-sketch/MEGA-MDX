@@ -76,11 +76,11 @@ export default {
       const fastEmoji = getRandomEmoji(fastEmojis);
       const slowEmoji = getRandomEmoji(slowEmojis);
 
-      let menuText = `${menuEmoji} *${config.botName || 'MEGA-MD'}* ${menuEmoji}\n\n`;
+      let menuText = `${menuEmoji} *${config.botName || 'SAMYAZA-MD'}* ${menuEmoji}\n\n`;
       menuText += `┏━━━━━━━━━━━━━━━━┓\n`;
-      menuText += `┃ 📱 *Bot:* ${config.botName || 'MEGA-MD'}\n`;
+      menuText += `┃ 📱 *Bot:* ${config.botName || 'SAMYAZA-MD'}\n`;
       menuText += `┃ 🔖 *Version:* ${config.version || '6.0.0'}\n`;
-      menuText += `┃ 👤 *Owner:* ${config.botOwner || 'Unknown'}\n`;
+      menuText += `┃ 👤 *Owner:* ${config.botOwner || 'SAMYAZA JNR'}\n`;
       menuText += `┃ ⏰ *Time:* ${formatTime()}\n`;
       menuText += `┃ ℹ️ *Prefix:* ${config.prefixes ? config.prefixes.join(', ') : '.'}\n`;
       menuText += `┃ 📊 *Plugins:* ${CommandHandler.commands.size}\n`;
