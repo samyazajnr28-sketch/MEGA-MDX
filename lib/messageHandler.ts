@@ -654,22 +654,23 @@ async function handleCall(sock: any, calls: any) {
                 if (!antiCallNotified.has(callerJid)) {
                     antiCallNotified.add(callerJid);
                     setTimeout(() => antiCallNotified.delete(callerJid), 60000);
-
                     await sock.sendMessage(callerJid, {
-     text: 
-        "╔══════════════════════════════════════════════════════╗\n" +
-        "║ 🛡️  𝙎𝘼𝙈𝙔𝘼𝙕𝘼 𝙁𝙄𝙍𝙀𝙒𝘼𝙇𝙇 𝙄𝙉𝙏𝙀𝙍𝘾𝙀𝙋𝙏  🛡️ ║\n" +
-        "╠══════════════════════════════════════════════════════╣\n" +
-        "║                                                      ║\n" +
-        "║  🚫 𝘾𝙊𝙉𝙉𝙀𝘾𝙏𝙄𝙊𝙉 𝙎𝙏𝘼𝙏𝙐𝙎: 𝘽𝙇𝙊𝘾𝙆𝙀𝘿                      ║\n" +
-        "║                                                      ║\n" +
-        "║  This account does not allow voice or video          ║\n" +
-        "║  transmission vectors. 📡                            ║\n" +
-        "║                                                      ║\n" +
-        "║  Please submit your inquiries via text only. ⌨️      ║\n" +
-        "║                                                      ║\n" +
-        "╚══════════════════════════════════════════════════════╝"
-     });
+    text: "```" +
+        "╔════════════════════════════════════════╗\n" +
+        "║  🛡️ SAMYAZA FIREWALL INTERCEPT 🛡️      ║\n" +
+        "╠════════════════════════════════════════╣\n" +
+        "║                                        ║\n" +
+        "║ 🚫 STATUS: BLOCKED                     ║\n" +
+        "║                                        ║\n" +
+        "║ This account does not allow voice or   ║\n" +
+        "║ video transmission vectors. 📡         ║\n" +
+        "║                                        ║\n" +
+        "║ Please submit your inquiries via text  ║\n" +
+        "║ only. ⌨️                               ║\n" +
+        "╚════════════════════════════════════════╝" +
+        "```"
+});
+
 
                     printLog('info', `Sent anticall warning to: ${callerJid.split('@')[0]}`);
                 }
