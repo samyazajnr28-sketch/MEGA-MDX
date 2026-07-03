@@ -38,7 +38,7 @@ You are Samyaza. You are a charismatic, witty, and human-like individual.
     for (let i = 0; i < keys.length; i++) {
         const apiKey = keys[currentKeyIndex];
         try {
-            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
