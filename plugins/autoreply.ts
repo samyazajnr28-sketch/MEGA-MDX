@@ -7,7 +7,6 @@ import type { BotContext } from '../types.js';
  * - Personality: Samyaza
  */
 
-// Load API keys dynamically
 const getGeminiKeys = () => {
     return Object.keys(process.env)
         .filter(key => key.startsWith('GEMINI_API_KEY_'))
@@ -17,7 +16,7 @@ const getGeminiKeys = () => {
 
 let currentKeyIndex = 0;
 
-async function getGeminiResponse(userMessage: string, senderName: string) {
+async function getGeminiResponse(userMessage: string, senderName: string): Promise<string | null> {
     const keys = getGeminiKeys();
     if (keys.length === 0) return null;
 
@@ -35,7 +34,8 @@ You are Samyaza. You are a charismatic, witty, and human-like individual.
     for (let i = 0; i < keys.length; i++) {
         const apiKey = keys[currentKeyIndex];
         try {
-            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+            // Using gemini-1.5-flash for stability
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -44,13 +44,13 @@ You are Samyaza. You are a charismatic, witty, and human-like individual.
             });
 
             if (response.ok) {
-                const data = await response.json();
+                const data = (await response.json()) as any;
                 return data.candidates[0].content.parts[0].text;
             }
         } catch (e) {
-            console.error(`Key ${currentKeyIndex} failed.`);
+            console.error(`Key index ${currentKeyIndex} failed.`);
         }
-        // Rotate key
+        
         currentKeyIndex = (currentKeyIndex + 1) % keys.length;
     }
     return null;
@@ -60,14 +60,13 @@ export async function handleAutoReply(sock: any, message: any, userMessage: stri
     const remoteJid = message.key.remoteJid;
     const isGroup = remoteJid.endsWith('@g.us');
     const senderId = message.key.participant || remoteJid;
-    const botId = sock.user.id.split(':')[0];
+    const botId = sock.user?.id?.split(':')[0] || '';
 
-    // Check if mentioned or in DM
     const mentionedJid = message.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
     const isMentioned = mentionedJid.includes(botId + '@s.whatsapp.net') || userMessage.includes('@' + botId);
     
-    // Auto-reply trigger: DMs or Mentions
-    if (!isGroup || isMentioned) {
+    // Auto-reply trigger: DMs or Mentions (excluding if message is from the bot itself)
+    if ((!isGroup || isMentioned) && !message.key.fromMe) {
         const reply = await getGeminiResponse(userMessage, senderId);
         if (reply) {
             await sock.sendPresenceUpdate('composing', remoteJid);
@@ -84,7 +83,6 @@ export default {
     usage: '.autoreply <on|off>',
     async handler(sock: any, message: any, args: any) {
         const sub = args[0]?.toLowerCase();
-        // Here you would hook into your store to persist the 'on/off' state
         await sock.sendMessage(message.key.remoteJid, { 
             text: `Samyaza personality mode is now ${sub === 'on' ? 'ACTIVE' : 'INACTIVE'}` 
         }, { quoted: message });
