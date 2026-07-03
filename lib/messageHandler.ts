@@ -656,8 +656,21 @@ async function handleCall(sock: any, calls: any) {
                     setTimeout(() => antiCallNotified.delete(callerJid), 60000);
 
                     await sock.sendMessage(callerJid, {
-                        text: '📵 Anticall is enabled. Your call was rejected and you will be blocked.'
-                    });
+     text: 
+        "╔══════════════════════════════════════════════════════╗\n" +
+        "║ 🛡️  𝙎𝘼𝙈𝙔𝘼𝙕𝘼 𝙁𝙄𝙍𝙀𝙒𝘼𝙇𝙇 𝙄𝙉𝙏𝙀𝙍𝘾𝙀𝙋𝙏  🛡️ ║\n" +
+        "╠══════════════════════════════════════════════════════╣\n" +
+        "║                                                      ║\n" +
+        "║  🚫 𝘾𝙊𝙉𝙉𝙀𝘾𝙏𝙄𝙊𝙉 𝙎𝙏𝘼𝙏𝙐𝙎: 𝘽𝙇𝙊𝘾𝙆𝙀𝘿                      ║\n" +
+        "║                                                      ║\n" +
+        "║  This account does not allow voice or video          ║\n" +
+        "║  transmission vectors. 📡                            ║\n" +
+        "║                                                      ║\n" +
+        "║  Please submit your inquiries via text only. ⌨️      ║\n" +
+        "║                                                      ║\n" +
+        "╚══════════════════════════════════════════════════════╝"
+     });
+
                     printLog('info', `Sent anticall warning to: ${callerJid.split('@')[0]}`);
                 }
 
