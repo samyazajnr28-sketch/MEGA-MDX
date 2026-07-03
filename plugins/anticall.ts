@@ -2,6 +2,12 @@ import type { BotContext } from '../types.js';
 import store from '../lib/lightweight_store.js';
 import fs from 'fs';
 
+/**
+ * Anticall Module
+ * This module monitors incoming calls and rejects them automatically 
+ * if enabled, notifying the caller via text message.
+ */
+
 const MONGO_URL = process.env.MONGO_URL;
 const POSTGRES_URL = process.env.POSTGRES_URL;
 const MYSQL_URL = process.env.MYSQL_URL;
@@ -35,32 +41,31 @@ async function writeState(enabled: boolean) {
       fs.writeFileSync(ANTICALL_PATH, JSON.stringify({ enabled: !!enabled }, null, 2));
     }
   } catch(e: any) {
-    console.error('Error writing anticall state:', e);
+    console.error('Error updating anticall state:', e);
   }
 }
 
+/**
+ * Handles the logic when a call event is emitted by the socket.
+ */
 export async function handleIncomingCall(sock: any, call: any) {
   const state = await readState();
   if (!state.enabled) return;
 
   try {
-    // Reject the call so it stops ringing
-    await sock.rejectCall(call.id);
+    // 1. Immediately decline the call to stop the device from ringing
+    await sock.rejectCall(call.id, call.from);
 
-    const dashboardMessage = 
-      `┌─── 🛡️ *SAMYAZA FIREWALL INTERCEPT* 🛡️ ───┐\n` +
-      `│                                       \n` +
-      `│ ⚠️ *CONNECTION RESTRICTED* ⚠️          \n` +
-      `│                                       \n` +
-      `│ *Status:* Incoming Call Rejected      \n` +
-      `│ *Policy:* Text-Only Mode Active       \n` +
-      `│                                       \n` +
-      `└───────────────────────────────────────┘\n\n` +
-      `This account does not accept voice or video calls. Please proceed via text communication.`;
+    // 2. Notify the user/caller about the restriction
+    const warningMessage = 
+      `🛡️ *SYSTEM NOTICE*\n\n` +
+      `This account is currently in *Text-Only Mode*.\n` +
+      `Voice and video calls are automatically rejected by the system.\n\n` +
+      `Please leave a message, and I will get back to you as soon as possible.`;
 
-    await sock.sendMessage(call.from, { text: dashboardMessage });
+    await sock.sendMessage(call.from, { text: warningMessage });
   } catch (e) {
-    console.error('Error in handleIncomingCall:', e);
+    console.error('Error handling incoming call:', e);
   }
 }
 
@@ -68,16 +73,16 @@ export default {
   command: 'anticall',
   aliases: ['acall', 'callblock'],
   category: 'owner',
-  description: 'Reject calls automatically without blocking',
+  description: 'Automatically rejects incoming voice/video calls',
   usage: '.anticall <on|off|status>',
   ownerOnly: true,
 
   async handler(sock: any, message: any, args: any, context: BotContext) {
     const chatId = context.chatId || message.key.remoteJid;
-    const state = await readState();
     const sub = args[0]?.toLowerCase();
 
     if (!sub || !['on', 'off', 'status'].includes(sub)) {
+      const state = await readState();
       return await sock.sendMessage(chatId, {
         text: `*ANTICALL SETTINGS*\n\n` +
               `Status: ${state.enabled ? '✅ ENABLED' : '❌ DISABLED'}\n\n` +
@@ -86,12 +91,13 @@ export default {
     }
 
     if (sub === 'status') {
+      const state = await readState();
       return await sock.sendMessage(chatId, { text: `Anticall is currently: ${state.enabled ? 'ENABLED' : 'DISABLED'}` }, { quoted: message });
     }
 
     const enable = sub === 'on';
     await writeState(enable);
-    await sock.sendMessage(chatId, { text: `✅ Anticall (reject-only) is now ${enable ? 'ENABLED' : 'DISABLED'}` }, { quoted: message });
+    await sock.sendMessage(chatId, { text: `✅ Anticall mode is now ${enable ? 'ENABLED' : 'DISABLED'}` }, { quoted: message });
   },
 
   readState,
