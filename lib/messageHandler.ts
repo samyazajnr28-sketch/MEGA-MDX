@@ -630,7 +630,7 @@ async function handleStatus(sock: any, status: any) {
 
 async function handleCall(sock: any, calls: any) {
     try {
-        const antiCallNotified = global.antiCallNotified || new Set<string>();
+        const antiCallNotified = (globalThis as any).antiCallNotified || new Set<string>();
         const anticallPlugin = (await import('../plugins/anticall.js')).default;
         const state = anticallPlugin.readState ? await anticallPlugin.readState() : { enabled: false };
         if (!state.enabled) return;
