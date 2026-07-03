@@ -27,5 +27,5 @@ jobs:
         SESSION_ID: ${{ secrets.SESSION_ID }}
         BOT_NAME: ${{ secrets.BOT_NAME }}
         OWNER_NUMBER: "254715182153"
-      run: node index.ts
+      run: node index.js
 
