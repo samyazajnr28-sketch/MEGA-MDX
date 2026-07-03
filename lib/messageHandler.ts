@@ -284,8 +284,7 @@ async function handleMessages(sock: any, messageUpdate: any) {
         startSchedulerEngine(sock);
 
         if (!message.key.fromMe) {
-            const replied = await handleAutoReply(sock, chatId, message, userMessage);
-            if (replied) return;
+            const replied = await handleAutoReply(sock, message, userMessage);
         }
 
         const senderIsOwnerOrSudo = await isOwnerOrSudo(senderId, sock, chatId);
