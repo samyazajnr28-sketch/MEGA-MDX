@@ -23,7 +23,7 @@ export default {
         return;
       }
 
-      let messageText = '🔊 *Hello Everyone:*\n\n';
+      let messageText = '🔊 *Hello Everyone Samyaza needs your attention:*\n\n';
       participants.forEach((participant: any) => {
         messageText += `@${participant.id.split('@')[0]}\n`;
       });
