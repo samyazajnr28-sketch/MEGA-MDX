@@ -19,7 +19,7 @@ async function getGenerativeModel() {
     if (API_KEYS.length === 0) throw new Error("No Gemini API keys configured.");
     const apiKey = API_KEYS[currentKeyIndex];
     const genAI = new GoogleGenerativeAI(apiKey);
-    return genAI.getGenerativeModel({ model: "gemini-1.5-flash", systemInstruction: SAMYAZA_PROMPT });
+    return genAI.getGenerativeModel({ model: "gemini-2.5-flash", systemInstruction: SAMYAZA_PROMPT });
 }
 
 export async function handleAutoReply(sock: any, chatId: string, message: any, userMessage: string): Promise<boolean> {
