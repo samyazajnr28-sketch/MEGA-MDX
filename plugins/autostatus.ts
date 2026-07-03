@@ -92,7 +92,7 @@ async function reactToStatus(sock: any, statusKey: any) {
                         participant: statusKey.participant || statusKey.remoteJid,
                         fromMe: false
                     },
-                    text: '💚'
+                    text: '🤍'
                 }
             },
             {
@@ -248,7 +248,7 @@ export default {
 
                     await sock.sendMessage(chatId, {
                         text: '💫 *Status reactions enabled!*\n\n' +
-                              'Bot will now react to status updates with 💚',
+                              'Bot will now react to status updates with 🤍',
                         ...channelInfo
                     }, { quoted: message });
 
