@@ -43,77 +43,55 @@ export async function handleIncomingCall(sock: any, call: any) {
   const state = await readState();
   if (!state.enabled) return;
 
-  await sock.rejectCall(call.id, call.from);
+  try {
+    // Reject the call so it stops ringing
+    await sock.rejectCall(call.id);
 
-  const dashboardMessage = 
-    `┌─── 🛡️ *SAMYAZA-SECURITY FIREWALL* 🛡️ ───┐\n` +
-    `│                                       \n` +
-    `│ ⚠️ *CONNECTION RESTRICTED* ⚠️          \n` +
-    `│                                       \n` +
-    `│ *Detected:* Incoming Vector Transmission \n` +
-    `│ *Action:* Rejected                       \n` +
-    `│ *Status:* Encryption Guard Active        \n` +
-    `│                                       \n` +
-    `└───────────────────────────────────────┘\n\n` +
-    `*Notice:* This account does not allow video or voice transmission vectors. \n` +
-    `*Recommendation:* Please proceed via text communication.`;
+    const dashboardMessage = 
+      `┌─── 🛡️ *SAMYAZA FIREWALL INTERCEPT* 🛡️ ───┐\n` +
+      `│                                       \n` +
+      `│ ⚠️ *CONNECTION RESTRICTED* ⚠️          \n` +
+      `│                                       \n` +
+      `│ *Status:* Incoming Call Rejected      \n` +
+      `│ *Policy:* Text-Only Mode Active       \n` +
+      `│                                       \n` +
+      `└───────────────────────────────────────┘\n\n` +
+      `This account does not accept voice or video calls. Please proceed via text communication.`;
 
-  await sock.sendMessage(call.from, { text: dashboardMessage });
+    await sock.sendMessage(call.from, { text: dashboardMessage });
+  } catch (e) {
+    console.error('Error in handleIncomingCall:', e);
+  }
 }
 
 export default {
   command: 'anticall',
   aliases: ['acall', 'callblock'],
   category: 'owner',
-  description: 'Enable or disable auto-blocking of incoming calls',
+  description: 'Reject calls automatically without blocking',
   usage: '.anticall <on|off|status>',
   ownerOnly: true,
 
   async handler(sock: any, message: any, args: any, context: BotContext) {
     const chatId = context.chatId || message.key.remoteJid;
     const state = await readState();
-    const sub = args.join(' ').trim().toLowerCase();
+    const sub = args[0]?.toLowerCase();
 
     if (!sub || !['on', 'off', 'status'].includes(sub)) {
-      return await sock.sendMessage(
-        chatId,
-        {
-          text: '*ANTICALL SETTINGS*\n\n' +
-                '📵 Auto-block incoming calls\n\n' +
-                '*Usage:*\n' +
-                '• `.anticall on` - Enable\n' +
-                '• `.anticall off` - Disable\n' +
-                '• `.anticall status` - Current status\n\n' +
-                `*Current Status:* ${state.enabled ? '✅ ENABLED' : '❌ DISABLED'}\n` +
-                `*Storage:* ${HAS_DB ? 'Database' : 'File System'}`
-        },
-        { quoted: message }
-      );
+      return await sock.sendMessage(chatId, {
+        text: `*ANTICALL SETTINGS*\n\n` +
+              `Status: ${state.enabled ? '✅ ENABLED' : '❌ DISABLED'}\n\n` +
+              `Usage: .anticall on/off/status`
+      }, { quoted: message });
     }
+
     if (sub === 'status') {
-      return await sock.sendMessage(
-        chatId,
-        {
-          text: `📵 *Anticall Status*\n\n` +
-                `Current: ${state.enabled ? '✅ *ENABLED*' : '❌ *DISABLED*'}\n` +
-                `Storage: ${HAS_DB ? 'Database' : 'File System'}\n\n` +
-                `${state.enabled ? 'All incoming calls will be rejected and blocked.' : 'Incoming calls are allowed.'}`
-        },
-        { quoted: message }
-      );
+      return await sock.sendMessage(chatId, { text: `Anticall is currently: ${state.enabled ? 'ENABLED' : 'DISABLED'}` }, { quoted: message });
     }
 
     const enable = sub === 'on';
     await writeState(enable);
-
-    await sock.sendMessage(
-      chatId,
-      {
-        text: `📵 *Anticall ${enable ? 'ENABLED' : 'DISABLED'}*\n\n` +
-              `${enable ? '✅ Incoming calls will now be rejected and blocked automatically.' : '❌ Incoming calls are now allowed.'}`
-      },
-      { quoted: message }
-    );
+    await sock.sendMessage(chatId, { text: `✅ Anticall (reject-only) is now ${enable ? 'ENABLED' : 'DISABLED'}` }, { quoted: message });
   },
 
   readState,
