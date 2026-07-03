@@ -1,27 +1,27 @@
 import 'dotenv/config';
 
-const _prefixes = process.env.PREFIXES ? process.env.PREFIXES.split(',') : ['.', '!', '/', '#'];
+const _prefixes = process.env.PREFIXES ? process.env.PREFIXES.split(',') : ['☠️','>','.','#'];
 
 const config = {
     // Bot Identity
-    botName:     process.env.BOT_NAME      || 'MEGA-MD',
-    botOwner:    process.env.BOT_OWNER     || 'Qasim Ali',
-    ownerNumber: process.env.OWNER_NUMBER  || '923051391007',
-    author:      process.env.AUTHOR        || 'GlobalTechInfo',
-    packname:    process.env.PACKNAME      || 'MEGA-MD',
+    botName:     process.env.BOT_NAME      || 'SAMYAZA-MD',
+    botOwner:    process.env.BOT_OWNER     || 'SAMYAZA JNR',
+    ownerNumber: process.env.OWNER_NUMBER  || '254715182153',
+    author:      process.env.AUTHOR        || 'ANONYMOUS TECH INFO',
+    packname:    process.env.PACKNAME      || 'SAMYAZA-MD',
     description: process.env.DESCRIPTION  || 'High performance multi-device WhatsApp bot',
     version:     '6.0.0',
 
     // Bot Config
     prefixes:    _prefixes,
     prefix:      _prefixes[0],
-    commandMode: process.env.COMMAND_MODE  || 'public',
-    timeZone:    process.env.TIMEZONE      || 'Asia/Karachi',
+    commandMode: process.env.COMMAND_MODE  || 'private',
+    timeZone:    process.env.TIMEZONE      || 'Africa/Nairobi',
 
     // Links
     channelLink:   process.env.CHANNEL_LINK || 'https://whatsapp.com/channel/0029VagJIAr3bbVBCpEkAM07',
     updateZipUrl:  process.env.UPDATE_URL   || 'https://github.com/GlobalTechInfo/MEGA-MD/archive/refs/heads/main.zip',
-    ytChannel:     process.env.YT_CHANNEL   || 'GlobalTechInfo',
+    ytChannel:     process.env.YT_CHANNEL   || 'SAMYAZA TECH',
 
     // Session
     sessionId:     process.env.SESSION_ID      || '',
