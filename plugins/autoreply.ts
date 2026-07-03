@@ -26,7 +26,6 @@ export async function handleAutoReply(sock: any, chatId: string, message: any, u
     const config = await store.getSetting('global', 'ai_autoreply_config');
     if (!config?.enabled) return false;
 
-    // Trigger only on DMs, mentions, or direct replies
     const isDM = !chatId.endsWith('@g.us');
     const isTag = message.message?.extendedTextMessage?.contextInfo?.mentionedJid?.includes(sock.user.id);
     const isReply = message.message?.extendedTextMessage?.contextInfo?.participant === sock.user.id;
@@ -41,7 +40,6 @@ export async function handleAutoReply(sock: any, chatId: string, message: any, u
         await sock.sendMessage(chatId, { text: response }, { quoted: message });
         return true;
     } catch (e: any) {
-        console.error('[SAMYAZA] Error, rotating key...');
         currentKeyIndex = (currentKeyIndex + 1) % API_KEYS.length;
         return false;
     }
@@ -49,7 +47,7 @@ export async function handleAutoReply(sock: any, chatId: string, message: any, u
 
 export default {
     command: 'autoreply',
-    aliases: ['ar', 'sam'],
+    aliases: ['aiar'],
     category: 'owner',
     description: 'Toggle Samyaza AI auto-reply system',
     usage: '.autoreply <on|off>',
@@ -61,12 +59,7 @@ export default {
 
         if (action === 'on' || action === 'off') {
             await store.saveSetting('global', 'ai_autoreply_config', { enabled: action === 'on' });
-            return await sock.sendMessage(chatId, { text: `Samyaza is now ${action === 'on' ? 'active, ready to chat 😉' : 'offline 😴'}` }, { quoted: message });
+            return await sock.sendMessage(chatId, { text: `Samyaza is now ${action === 'on' ? 'active' : 'offline'}` }, { quoted: message });
         }
-
-        const current = await store.getSetting('global', 'ai_autoreply_config');
-        await sock.sendMessage(chatId, { 
-            text: `*Samyaza Auto-Reply*\nStatus: ${current?.enabled ? 'Active' : 'Inactive'}\n\nUse \`.autoreply on\` or \`.autoreply off\`` 
-        }, { quoted: message });
     }
 };
