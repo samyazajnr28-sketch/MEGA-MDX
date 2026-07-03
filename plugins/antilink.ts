@@ -118,7 +118,7 @@ export async function handleLinkDetection(sock: any, chatId: string, message: an
             } catch(error: any) {
                 console.error('Failed to kick user:', error);
                 await sock.sendMessage(chatId, {
-                    text: `⚠️ Failed to remove user. Make sure the bot is an admin.`
+                    text: `⚠️ Failed to remove user. Make sure Samyaza is an admin.`
                 });
             }
         }
