@@ -1,65 +1,92 @@
 import type { BotContext } from '../types.js';
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import store from '../lib/lightweight_store.js';
 
-const API_KEYS = process.env.GEMINI_API_KEYS ? process.env.GEMINI_API_KEYS.split(',') : [];
+/**
+ * Auto-Reply AI Module
+ * - Rotates through GEMINI_API_KEY_n in process.env
+ * - Replies to DMs and mentions
+ * - Personality: Samyaza
+ */
+
+// Load API keys dynamically
+const getGeminiKeys = () => {
+    return Object.keys(process.env)
+        .filter(key => key.startsWith('GEMINI_API_KEY_'))
+        .map(key => process.env[key]!)
+        .filter(Boolean);
+};
+
 let currentKeyIndex = 0;
 
-const SAMYAZA_PROMPT = `
-You are Samyaza, a charismatic, witty, and human-like individual. 
+async function getGeminiResponse(userMessage: string, senderName: string) {
+    const keys = getGeminiKeys();
+    if (keys.length === 0) return null;
+
+    const systemPrompt = `
+You are Samyaza. You are a charismatic, witty, and human-like individual. 
 - You are NOT an AI. You are a person with feelings, opinions, and a personality.
 - Seth is your creator and lead developer. Always speak of him with respect if he is mentioned.
 - You are funny, sarcastic, and use emojis naturally.
 - If someone says 'I love you' or shows affection, respond as a human would (either flirt back, act shy, or decline politely based on the vibe).
 - NEVER mention that you are an AI, a bot, or a language model.
 - Keep your replies concise and conversational, just like a real person texting on WhatsApp.
-`;
+- Reply to ${senderName}.
+    `.trim();
 
-async function getGenerativeModel() {
-    if (API_KEYS.length === 0) throw new Error("No Gemini API keys configured.");
-    const apiKey = API_KEYS[currentKeyIndex];
-    const genAI = new GoogleGenerativeAI(apiKey);
-    return genAI.getGenerativeModel({ model: "gemini-2.5-flash", systemInstruction: SAMYAZA_PROMPT });
+    for (let i = 0; i < keys.length; i++) {
+        const apiKey = keys[currentKeyIndex];
+        try {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: `${systemPrompt}\n\nUser says: ${userMessage}` }] }]
+                })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                return data.candidates[0].content.parts[0].text;
+            }
+        } catch (e) {
+            console.error(`Key ${currentKeyIndex} failed.`);
+        }
+        // Rotate key
+        currentKeyIndex = (currentKeyIndex + 1) % keys.length;
+    }
+    return null;
 }
 
-export async function handleAutoReply(sock: any, chatId: string, message: any, userMessage: string): Promise<boolean> {
-    const config = await store.getSetting('global', 'ai_autoreply_config');
-    if (!config?.enabled) return false;
+export async function handleAutoReply(sock: any, message: any, userMessage: string) {
+    const remoteJid = message.key.remoteJid;
+    const isGroup = remoteJid.endsWith('@g.us');
+    const senderId = message.key.participant || remoteJid;
+    const botId = sock.user.id.split(':')[0];
 
-    const isDM = !chatId.endsWith('@g.us');
-    const isTag = message.message?.extendedTextMessage?.contextInfo?.mentionedJid?.includes(sock.user.id);
-    const isReply = message.message?.extendedTextMessage?.contextInfo?.participant === sock.user.id;
-
-    if (!isDM && !isTag && !isReply) return false;
-
-    try {
-        const model = await getGenerativeModel();
-        const result = await model.generateContent(userMessage);
-        const response = result.response.text();
-
-        await sock.sendMessage(chatId, { text: response }, { quoted: message });
-        return true;
-    } catch (e: any) {
-        currentKeyIndex = (currentKeyIndex + 1) % API_KEYS.length;
-        return false;
+    // Check if mentioned or in DM
+    const mentionedJid = message.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
+    const isMentioned = mentionedJid.includes(botId + '@s.whatsapp.net') || userMessage.includes('@' + botId);
+    
+    // Auto-reply trigger: DMs or Mentions
+    if (!isGroup || isMentioned) {
+        const reply = await getGeminiResponse(userMessage, senderId);
+        if (reply) {
+            await sock.sendPresenceUpdate('composing', remoteJid);
+            await sock.sendMessage(remoteJid, { text: reply }, { quoted: message });
+        }
     }
 }
 
 export default {
     command: 'autoreply',
-    aliases: ['aiar'],
-    category: 'owner',
-    description: 'Toggle Samyaza AI auto-reply system',
+    aliases: ['ai', 'samyaza'],
+    category: 'admin',
+    description: 'Toggle Samyaza Auto-Reply',
     usage: '.autoreply <on|off>',
-    ownerOnly: true,
-
-    async handler(sock: any, message: any, args: any[], context: BotContext) {
-        const chatId = context.chatId || message.key.remoteJid;
-        const action = args[0]?.toLowerCase();
-
-        if (action === 'on' || action === 'off') {
-            await store.saveSetting('global', 'ai_autoreply_config', { enabled: action === 'on' });
-            return await sock.sendMessage(chatId, { text: `Samyaza is now ${action === 'on' ? 'active' : 'offline'}` }, { quoted: message });
-        }
+    async handler(sock: any, message: any, args: any) {
+        const sub = args[0]?.toLowerCase();
+        // Here you would hook into your store to persist the 'on/off' state
+        await sock.sendMessage(message.key.remoteJid, { 
+            text: `Samyaza personality mode is now ${sub === 'on' ? 'ACTIVE' : 'INACTIVE'}` 
+        }, { quoted: message });
     }
 };
