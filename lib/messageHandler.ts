@@ -634,61 +634,50 @@ async function handleCall(sock: any, calls: any) {
         const state = anticallPlugin.readState ? await anticallPlugin.readState() : { enabled: false };
         if (!state.enabled) return;
 
-        const antiCallNotified = new Set();
-
         for (const call of calls) {
             const callerJid = call.from || call.peerJid || call.chatId;
             if (!callerJid) continue;
 
+            if (antiCallNotified.has(callerJid)) continue;
+
             try {
-                try {
-                    if (typeof sock.rejectCall === 'function' && call.id) {
-                        await sock.rejectCall(call.id, callerJid);
-                    } else if (typeof sock.sendCallOfferAck === 'function' && call.id) {
-                        await sock.sendCallOfferAck(call.id, callerJid, 'reject');
-                    }
-                } catch(e: any) {
-                    printLog('error', `Error rejecting call: ${e.message}`);
+                if (typeof sock.rejectCall === 'function' && call.id) {
+                    await sock.rejectCall(call.id, callerJid);
                 }
-
-                if (!antiCallNotified.has(callerJid)) {
-                    antiCallNotified.add(callerJid);
-                    setTimeout(() => antiCallNotified.delete(callerJid), 60000);
-
-                    await sock.sendMessage(callerJid, {
-    text: "```" +
-        "    🛡️ SAMYAZA FIREWALL INTERCEPT 🛡️    \n\n" +
-        "           🚫 STATUS: BLOCKED            \n\n" +
-        "This account does not allow voice or     \n" +
-        "    video transmission vectors. 📡       \n\n" +
-        " Please submit your inquiries via text   \n" +
-        "                only. ⌨️                 " +
-        "```"
-});
-
-
-
-                    printLog('info', `Sent anticall warning to: ${callerJid.split('@')[0]}`);
-                }
-
-                setTimeout(async () => {
-                    try {
-                        await sock.updateBlockStatus(callerJid, 'block');
-                        printLog('success', `Blocked caller: ${callerJid.split('@')[0]}`);
-                    } catch(e: any) {
-                        printLog('error', `Error blocking caller: ${e.message}`);
-                    }
-                }, 800);
-
-            } catch(error: any) {
-                printLog('error', `Error handling call from ${callerJid.split('@')[0]}: ${error.message}`);
+            } catch(e: any) {
+                printLog('error', `Error rejecting call: ${e.message}`);
             }
+
+            antiCallNotified.add(callerJid);
+            setTimeout(() => antiCallNotified.delete(callerJid), 60000);
+
+            await sock.sendMessage(callerJid, {
+                text: "```" +
+                    "     🛡️ SAMYAZA FIREWALL INTERCEPT 🛡️     \n\n" +
+                    "             🚫 STATUS: BLOCKED            \n\n" +
+                    "   This account does not allow voice or    \n" +
+                    "      video transmission vectors. 📡       \n\n" +
+                    "  Please submit your inquiries via text    \n" +
+                    "                  only. ⌨️                 " +
+                    "```"
+            });
+
+            printLog('info', `Sent anticall warning to: ${callerJid.split('@')[0]}`);
+
+            setTimeout(async () => {
+                try {
+                    await sock.updateBlockStatus(callerJid, 'block');
+                } catch(e: any) {
+                    printLog('error', `Error blocking caller: ${e.message}`);
+                }
+            }, 800);
         }
     } catch(error: any) {
         printLog('error', `Call handler error: ${error.message}`);
         console.error(error.stack);
     }
 }
+
 
 export {
     handleMessages,
