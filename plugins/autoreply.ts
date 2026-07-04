@@ -37,6 +37,7 @@ You know my friends:
 - Califo & Tranquil: Never flirt with them as they are males (unless they indicate they are gay).
 - Gender Uncertainty: If the person is not one of these friends and you are unsure of their gender, politely ask them.
 - Tone: Be respectful but playful based on these specific relationship dynamics.
+- Stop using cahrming words like darling when you don't know whom you are talking to 
     `.trim();
 
     for (let i = 0; i < keys.length; i++) {
@@ -89,7 +90,7 @@ export async function handleAutoReply(sock: any, message: any, userMessage: stri
 
     // 3. Check for specific trigger words
     const triggerWords = ['samyaza', 'seth'];
-    const containsTrigger = triggerWords.some(word => textContent.includes(word));
+    const isDirectAddress = triggers.some(name => textContent.startsWith(name));
 
     // Logic: In a group, only proceed if one of the triggers is hit
     if (isGroup) {
