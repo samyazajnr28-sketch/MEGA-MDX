@@ -71,33 +71,34 @@ export async function handleAutoReply(sock: any, message: any, userMessage: stri
 
     const isGroup = remoteJid.endsWith('@g.us');
     const botId = sock.user?.id?.split(':')[0] || '';
-    
-    // Get text content safely, checking both normal messages and extended text messages
     const textContent = (userMessage || '').toLowerCase();
-    
-    // 1. Check for Mentions (Bot ID or @all/everyone)
+
+    // --- Strict Detection Logic ---
+
+    // 1. Direct Mention: Did they use @[botNumber]?
     const contextInfo = message.message?.extendedTextMessage?.contextInfo;
     const mentionedJid = contextInfo?.mentionedJid || [];
-    const isMentioned = mentionedJid.includes(botId + '@s.whatsapp.net') || 
-                        textContent.includes('@' + botId) ||
-                        textContent.includes('@all') ||
-                        textContent.includes('everyone');
+    const isMentioned = mentionedJid.includes(botId + '@s.whatsapp.net') || textContent.includes('@' + botId);
 
-    // 2. Check for Replies (if user replied to the bot's previous message)
-    // Note: Some versions of WA-Web/Baileys use contextInfo.stanzaId to match replies
-    const isReplyToMe = contextInfo?.participant?.includes(botId) || 
-                        (message.message?.extendedTextMessage?.contextInfo?.stanzaId !== undefined);
+    // 2. Direct Reply: Did they click "Reply" on a message sent by the bot?
+    const isReplyToMe = contextInfo?.participant?.includes(botId);
 
-    // 3. Check for specific trigger words
-    const triggerWords = ['samyaza', 'seth'];
+    // 3. Command Triggers: Only trigger if the message STARTS with the name 
+    // This prevents the bot from jumping in when people are just discussing it.
+    const triggers = ['samyaza', 'seth'];
     const isDirectAddress = triggers.some(name => textContent.startsWith(name));
 
-    // Logic: In a group, only proceed if one of the triggers is hit
+    // 4. Tag All (Keep this, but maybe make it less sensitive if needed)
+    const isTagAll = textContent.includes('tagall') || textContent.includes('everyone');
+
+    // Only proceed if one of the DIRECT conditions is met
     if (isGroup) {
-        if (!(isMentioned || isReplyToMe || containsTrigger)) {
+        if (!(isMentioned || isReplyToMe || isDirectAddress || isTagAll)) {
             return;
         }
     }
+
+    // --- End Detection Logic ---
 
     const reply = await getGeminiResponse(userMessage);
     
