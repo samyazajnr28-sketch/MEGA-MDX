@@ -70,12 +70,17 @@ export async function handleAutoReply(sock: any, message: any, userMessage: stri
 
     const isGroup = remoteJid.endsWith('@g.us');
     const botId = sock.user?.id?.split(':')[0] || '';
-    
-    const contextInfo = message.message?.extendedTextMessage?.contextInfo;
-    const mentionedJid = contextInfo?.mentionedJid || [];
-    const isMentioned = mentionedJid.includes(botId + '@s.whatsapp.net') || userMessage.includes('@' + botId);
-    
-    if (isGroup && !isMentioned) return;
+
+    if (isGroup) {
+        const contextInfo = message.message?.extendedTextMessage?.contextInfo;
+        const mentionedJid = contextInfo?.mentionedJid || [];
+        const isMentioned = mentionedJid.includes(botId + '@s.whatsapp.net') || 
+                            userMessage.includes('@' + botId) ||
+                            userMessage.toLowerCase().includes('tagall') ||
+                            userMessage.toLowerCase().includes('everyone');
+        
+        if (!isMentioned) return; 
+    }
 
     const reply = await getGeminiResponse(userMessage);
     
