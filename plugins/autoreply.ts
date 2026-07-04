@@ -1,28 +1,25 @@
-import type { BotContext } from '../types.js';
+import { BotContext } from '../types.js';
 
 /**
  * Auto-Reply AI Module
- * Rotates through GEMINI_API_KEY_1, GEMINI_API_KEY_2, GEMINI_API_KEY_3
  */
 
+// Use a simple variable for state (consider persistent storage for production)
+let isAutoReplyEnabled = true;
+
 const getGeminiKeys = () => {
-    // Specifically looking for keys 1, 2, and 3
-    const keys = [
+    return [
         process.env.GEMINI_API_KEY_1,
         process.env.GEMINI_API_KEY_2,
         process.env.GEMINI_API_KEY_3
-    ].filter(Boolean); // Filters out any that might be undefined
-    return keys as string[];
+    ].filter(Boolean) as string[];
 };
 
 let currentKeyIndex = 0;
 
-async function getGeminiResponse(userMessage: string, senderName: string): Promise<string | null> {
+async function getGeminiResponse(userMessage: string): Promise<string | null> {
     const keys = getGeminiKeys();
-    if (keys.length === 0) {
-        console.error("No GEMINI_API_KEY found in environment variables.");
-        return null;
-    }
+    if (keys.length === 0) return null;
 
     const systemPrompt = `
 You are Samyaza. You are a charismatic, witty, and human-like individual. 
@@ -31,10 +28,14 @@ You are Samyaza. You are a charismatic, witty, and human-like individual.
 - You are funny, sarcastic, and use emojis naturally.
 - NEVER mention that you are an AI, a bot, or a language model.
 - Keep your replies concise and conversational.
-- Reply to ${senderName}.
+- Akoth, Lavie, Brii, Tranquil and Califo are my friends
+- Akoth, Lavie and Brii are females while Califo and Tranquil are males
+- Akoth is very special beacuse she is like my girlfriend
+- You can flirt with lavie and brii
+- Never flirt with a male unless he is a gay
+- If you are not sure of the gender you can ask the person
     `.trim();
 
-    // Attempt to get a response, rotating keys on failure
     for (let i = 0; i < keys.length; i++) {
         const apiKey = keys[currentKeyIndex];
         try {
@@ -47,44 +48,42 @@ You are Samyaza. You are a charismatic, witty, and human-like individual.
             });
 
             if (response.ok) {
-                const data = (await response.json()) as any;
+                const data = await response.json();
                 return data.candidates[0].content.parts[0].text;
-            } else {
-                console.warn(`Key ${currentKeyIndex + 1} failed with status ${response.status}`);
             }
         } catch (e) {
             console.error(`Error using key ${currentKeyIndex + 1}:`, e);
         }
-        
-        // Rotate to the next key
         currentKeyIndex = (currentKeyIndex + 1) % keys.length;
     }
     return null;
 }
 
 export async function handleAutoReply(sock: any, message: any, userMessage: string) {
+    // 1. Exit if feature is disabled
+    if (!isAutoReplyEnabled) return;
+
     const remoteJid = message.key.remoteJid;
-    if (!remoteJid) return;
+    if (!remoteJid || message.key.fromMe) return;
 
     const isGroup = remoteJid.endsWith('@g.us');
-    const senderId = message.key.participant || remoteJid;
     const botId = sock.user?.id?.split(':')[0] || '';
-
-    // Robust Mention Detection
+    
+    // 2. Mentions check
     const contextInfo = message.message?.extendedTextMessage?.contextInfo;
     const mentionedJid = contextInfo?.mentionedJid || [];
     const isMentioned = mentionedJid.includes(botId + '@s.whatsapp.net') || userMessage.includes('@' + botId);
     
-    // Only reply if it's a DM or a mention in a group, and not a message from the bot
-    if ((!isGroup || isMentioned) && !message.key.fromMe) {
-        const reply = await getGeminiResponse(userMessage, senderId);
-        
-        if (reply) {
-            await sock.sendPresenceUpdate('composing', remoteJid);
-            // Simulate human delay
-            await new Promise(resolve => setTimeout(resolve, 800));
-            await sock.sendMessage(remoteJid, { text: reply }, { quoted: message });
-        }
+    // 3. Only reply in DMs or if mentioned in groups
+    if (isGroup && !isMentioned) return;
+
+    const reply = await getGeminiResponse(userMessage);
+    
+    // 4. Send only the plain text reply
+    if (reply) {
+        await sock.sendPresenceUpdate('composing', remoteJid);
+        await new Promise(resolve => setTimeout(resolve, 800));
+        await sock.sendMessage(remoteJid, { text: reply }, { quoted: message });
     }
 }
 
@@ -96,8 +95,9 @@ export default {
     usage: '.autoreply <on|off>',
     async handler(sock: any, message: any, args: any) {
         const sub = args[0]?.toLowerCase();
+        isAutoReplyEnabled = (sub === 'on');
         await sock.sendMessage(message.key.remoteJid, { 
-            text: `Samyaza personality mode is now ${sub === 'on' ? 'ACTIVE' : 'INACTIVE'}` 
+            text: `Samyaza personality mode is now ${isAutoReplyEnabled ? 'ACTIVE' : 'INACTIVE'}` 
         }, { quoted: message });
     }
 };
