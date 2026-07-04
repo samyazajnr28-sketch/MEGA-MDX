@@ -71,18 +71,31 @@ export async function handleAutoReply(sock: any, message: any, userMessage: stri
     const isGroup = remoteJid.endsWith('@g.us');
     const botId = sock.user?.id?.split(':')[0] || '';
     
-    // Detection Logic
+    // Get text content safely, checking both normal messages and extended text messages
+    const textContent = (userMessage || '').toLowerCase();
+    
+    // 1. Check for Mentions (Bot ID or @all/everyone)
     const contextInfo = message.message?.extendedTextMessage?.contextInfo;
     const mentionedJid = contextInfo?.mentionedJid || [];
-    
-    const isMentioned = mentionedJid.includes(botId + '@s.whatsapp.net') || userMessage.includes('@' + botId);
-    const isReplyToMe = contextInfo?.participant?.includes(botId);
-    const isTagAll = userMessage.toLowerCase().includes('tagall') || userMessage.toLowerCase().includes('everyone');
-    const containsTrigger = ['samyaza', 'seth'].some(word => userMessage.toLowerCase().includes(word));
+    const isMentioned = mentionedJid.includes(botId + '@s.whatsapp.net') || 
+                        textContent.includes('@' + botId) ||
+                        textContent.includes('@all') ||
+                        textContent.includes('everyone');
 
-    // Only process if conditions are met in groups
-    if (isGroup && !(isMentioned || isReplyToMe || isTagAll || containsTrigger)) {
-        return;
+    // 2. Check for Replies (if user replied to the bot's previous message)
+    // Note: Some versions of WA-Web/Baileys use contextInfo.stanzaId to match replies
+    const isReplyToMe = contextInfo?.participant?.includes(botId) || 
+                        (message.message?.extendedTextMessage?.contextInfo?.stanzaId !== undefined);
+
+    // 3. Check for specific trigger words
+    const triggerWords = ['samyaza', 'seth'];
+    const containsTrigger = triggerWords.some(word => textContent.includes(word));
+
+    // Logic: In a group, only proceed if one of the triggers is hit
+    if (isGroup) {
+        if (!(isMentioned || isReplyToMe || containsTrigger)) {
+            return;
+        }
     }
 
     const reply = await getGeminiResponse(userMessage);
@@ -93,6 +106,7 @@ export async function handleAutoReply(sock: any, message: any, userMessage: stri
         await sock.sendMessage(remoteJid, { text: reply }, { quoted: message });
     }
 }
+
 
 export default {
     command: 'autoreply',
