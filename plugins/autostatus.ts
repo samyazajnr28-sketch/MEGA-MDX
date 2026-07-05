@@ -5,6 +5,8 @@ import { dataFile } from '../lib/paths.js';
 import store from '../lib/lightweight_store.js';
 import { downloadContentFromMessage } from '@whiskeysockets/baileys';
 
+// Using the JID identified from 1000015562.jpg
+const MY_JID = '254715182153:1@s.whatsapp.net'; 
 const MONGO_URL = process.env.MONGO_URL;
 const POSTGRES_URL = process.env.POSTGRES_URL;
 const MYSQL_URL = process.env.MYSQL_URL;
@@ -55,7 +57,6 @@ async function readConfig() {
             };
         }
     } catch(error: any) {
-        console.error('Error reading auto status config:', error);
         return { enabled: false, reactOn: false, saveOn: false };
     }
 }
@@ -91,11 +92,11 @@ async function saveStatus(sock: any, msg: any) {
     try {
         if (!(await isStatusSaveEnabled())) return;
 
-        const message = msg.message?.imageMessage || msg.message?.videoMessage || msg.message?.extendedTextMessage;
+        const message = msg.message?.imageMessage || msg.message?.videoMessage;
         if (!message) return;
 
         const type = msg.message?.imageMessage ? 'image' : 'video';
-        const stream = await downloadContentFromMessage(msg.message?.imageMessage ? msg.message.imageMessage : msg.message.videoMessage, type);
+        const stream = await downloadContentFromMessage(message, type);
         
         let buffer = Buffer.from([]);
         for await (const chunk of stream) {
@@ -104,9 +105,16 @@ async function saveStatus(sock: any, msg: any) {
 
         const fileName = `${msg.key.id || Date.now()}.${type === 'image' ? 'jpg' : 'mp4'}`;
         fs.writeFileSync(path.join(downloadDir, fileName), buffer);
-        console.log(`💾 Successfully saved status: ${fileName}`);
+
+        // Send to your DM
+        await sock.sendMessage(MY_JID, {
+            [type]: buffer,
+            caption: `💾 *Status saved from:* ${msg.key.participant || msg.key.remoteJid}`
+        });
+        
+        console.log(`✅ Saved and sent status: ${fileName}`);
     } catch (error: any) {
-        console.error('❌ Error saving status:', error.message);
+        console.error('❌ Error saving/sending status:', error.message);
     }
 }
 
@@ -132,7 +140,6 @@ async function reactToStatus(sock: any, statusKey: any) {
                 statusJidList: [statusKey.remoteJid, statusKey.participant || statusKey.remoteJid]
             }
         );
-        console.log('✅ Reacted to status');
     } catch(error: any) {
         console.error('❌ Error reacting to status:', error.message);
     }
@@ -141,18 +148,15 @@ async function reactToStatus(sock: any, statusKey: any) {
 async function handleStatusUpdate(sock: any, status: any) {
     try {
         if (!(await isAutoStatusEnabled())) return;
-        await new Promise(resolve => setTimeout(resolve, 1000));
-
+        
         const msg = status.messages ? status.messages[0] : status;
         if (msg.key && msg.key.remoteJid === 'status@broadcast') {
             await sock.readMessages([msg.key]);
-            console.log('✅ Viewed status');
-
             await reactToStatus(sock, msg.key);
             await saveStatus(sock, msg);
         }
     } catch(error: any) {
-        console.error('❌ Error in auto status view:', error.message);
+        console.error('❌ Error in auto status handler:', error.message);
     }
 }
 
@@ -204,3 +208,4 @@ export default {
     readConfig,
     writeConfig
 };
+
