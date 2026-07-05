@@ -71,26 +71,35 @@ export async function handleAutoReply(sock: any, message: any, userMessage: stri
     const botId = sock.user?.id?.split(':')[0];
     const isGroup = remoteJid.endsWith('@g.us');
     const textContent = (userMessage || '').toLowerCase();
-
-    // 1. Mentions
+    
+    // Extract context
     const contextInfo = message.message?.extendedTextMessage?.contextInfo;
+    
+    // 1. Check for Mentions
     const mentionedJid = contextInfo?.mentionedJid || [];
-    const isMentioned = mentionedJid.some(jid => jid.includes(botId));
+    const isMentioned = mentionedJid.some((jid: string) => jid.includes(botId));
 
-    // 2. Reliable Reply Detection
-    // This checks if the participant of the quoted message is YOUR bot ID
+    // 2. Check for Replies (Strictly only if the bot is the one being quoted)
     const quotedParticipant = contextInfo?.participant?.split(':')[0];
-    const isReplyToMe = (quotedParticipant === botId);
+    const isReplyToMe = quotedParticipant === botId;
 
-    // 3. Triggers
+    // 3. Check for specific trigger words
     const triggerWords = ['samyaza', 'seth'];
     const containsTrigger = triggerWords.some(word => textContent.includes(word));
 
-    // Logic: In a group, ONLY proceed if one of these is true
+    // Logic: In a group, only proceed if one of the triggers is hit
     if (isGroup) {
         if (!(isMentioned || isReplyToMe || containsTrigger)) {
             return;
         }
+    }
+
+    const reply = await getGeminiResponse(userMessage);
+    
+    if (reply) {
+        await sock.sendPresenceUpdate('composing', remoteJid);
+        await new Promise(resolve => setTimeout(resolve, 800));
+        await sock.sendMessage(remoteJid, { text: reply }, { quoted: message });
     }
 }
 
@@ -108,3 +117,4 @@ export default {
         }, { quoted: message });
     }
 };
+
