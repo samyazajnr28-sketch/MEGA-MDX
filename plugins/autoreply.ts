@@ -84,7 +84,7 @@ export async function handleAutoReply(sock: any, message: any, userMessage: stri
     
     // Check mentions: Includes direct tags, @all, name, or reply-to-bot
     const isMentioned = mentionedJid.some((jid: string) => jid.includes(botJid)) || 
-                        textContent.includes('@' + botJid) ||
+                        textContent.includes('botId + '@s.whatsapp.net') ||
                         textContent.includes('@all') ||
                         textContent.includes('samyaza');
     
