@@ -68,26 +68,30 @@ export async function handleAutoReply(sock: any, message: any, userMessage: stri
     const remoteJid = message.key.remoteJid;
     if (!remoteJid || message.key.fromMe) return;
 
-    const botId = sock.user?.id?.split(':')[0];
+    // 1. Robust Bot ID extraction
+    const botId = sock.user?.id?.split(':')[0]; // e.g., "2547XXXXXXXX"
     const isGroup = remoteJid.endsWith('@g.us');
     const textContent = (userMessage || '').toLowerCase();
     
-    // Extract context
-    const contextInfo = message.message?.extendedTextMessage?.contextInfo;
-    
-    // 1. Check for Mentions
-    const mentionedJid = contextInfo?.mentionedJid || [];
-    const isMentioned = mentionedJid.some((jid: string) => jid.includes(botId));
+    // 2. Extract context safely
+    // Note: The structure varies. Sometimes it's in message.extendedTextMessage, 
+    // sometimes in message.message.extendedTextMessage
+    const msgContent = message.message?.extendedTextMessage || message.message?.buttonsResponseMessage?.contextInfo || {};
+    const contextInfo = msgContent.contextInfo || {};
 
-    // 2. Check for Replies (Strictly only if the bot is the one being quoted)
-    const quotedParticipant = contextInfo?.participant?.split(':')[0];
-    const isReplyToMe = quotedParticipant === botId;
+    // 3. Mentions Logic: Check mentionedJid array
+    const mentionedJids = contextInfo.mentionedJid || [];
+    const isMentioned = mentionedJids.some((jid: string) => jid.split('@')[0].includes(botId));
 
-    // 3. Check for specific trigger words
+    // 4. Reply Logic: Check if the quoted message was sent by the bot
+    const quotedParticipant = contextInfo.participant?.split('@')[0]?.split(':')[0];
+    const isReplyToMe = (quotedParticipant === botId);
+
+    // 5. Trigger Words
     const triggerWords = ['samyaza', 'seth'];
     const containsTrigger = triggerWords.some(word => textContent.includes(word));
 
-    // Logic: In a group, only proceed if one of the triggers is hit
+    // In a group, ONLY proceed if at least one condition is met
     if (isGroup) {
         if (!(isMentioned || isReplyToMe || containsTrigger)) {
             return;
