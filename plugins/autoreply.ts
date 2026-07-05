@@ -76,10 +76,11 @@ export async function handleAutoReply(sock: any, message: any, userMessage: stri
     // 1. Check for Mentions (Bot ID or @all/everyone)
     const contextInfo = message.message?.extendedTextMessage?.contextInfo;
     const mentionedJid = contextInfo?.mentionedJid || [];
-    const isMentioned = mentionedJid.includes(botId + '@s.whatsapp.net') || 
-                        textContent.includes('@' + botId) ||
-                        textContent.includes('@all') ||
-                        textContent.includes('samyaza');
+    // Check if any mention includes the bot's core number
+    const isMentioned = mentionedJid.some((jid: string) => jid.split('@')[0].includes(botId)) || 
+                    textContent.includes('@' + botId) ||
+                    textContent.includes('@all') ||
+                    textContent.includes('samyaza');
 
     // 2. Check for Replies (if user replied to the bot's previous message)
     const isReplyToMe = contextInfo?.participant?.includes(botId);
