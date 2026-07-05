@@ -74,37 +74,29 @@ export async function handleAutoReply(sock: any, message: any, userMessage: stri
 
     const isGroup = remoteJid.endsWith('@g.us');
     
-    // Identifiers from your logs
+    // Core Identifiers
     const MY_NUMBER = '254715182153';
-    const MY_EXACT_JID = '254715182153:1@s.whatsapp.net';
-    const MY_LID = '61577013289053:1@lid';
+    const MY_LID_NUMERIC = '61577013289053'; // Extracted from your logs
     
     const textContent = (userMessage || '').toLowerCase();
     const contextInfo = message.message?.extendedTextMessage?.contextInfo;
 
-    // Helper to check if a string contains any of your IDs
-    const isMe = (id: string) => id.includes(MY_NUMBER) || id === MY_EXACT_JID || id === MY_LID;
+    // 1. Mentions: Check if your number or numeric LID is mentioned
+    // WhatsApp often tags using the numeric part
+    const isMentioned = textContent.includes('@' + MY_NUMBER) || 
+                        textContent.includes('@' + MY_LID_NUMERIC) ||
+                        textContent.includes('@all');
 
-    // 1. Check Mentions: Matches your JID, LID, core number, or tags
-    const mentionedJids = contextInfo?.mentionedJid || [];
-    const isMentioned = mentionedJids.some((jid: string) => isMe(jid)) || 
-                        textContent.includes('@' + MY_LID) ||
-                        textContent.includes('@' + MY_EXACT_LID) ||
-                        textContent.includes('@all') ||
-                        textContent.includes('samyaza');
-
-    // 2. Check Replies: Is the participant of the quoted message you?
+    // 2. Replies: Check if quoted participant is you
     const quotedParticipant = contextInfo?.participant || '';
-    const isReplyToMe = isMe(quotedParticipant);
+    const isReplyToMe = quotedParticipant.includes(MY_NUMBER) || quotedParticipant.includes(MY_LID_NUMERIC);
+    
+    // 3. Trigger words
+    const containsTrigger = ['samyaza', 'seth'].some(word => textContent.includes(word));
 
-    // 3. Check trigger words
-    const triggerWords = ['samyaza', 'seth'];
-    const containsTrigger = triggerWords.some(word => textContent.includes(word));
-    // Check for manual @ mention in text
-    const isManualMention = textContent.includes('@' + MY_NUMBER);
-    // Logic: In group, must be mentioned, replied to, or triggered
+    // Logic: In a group, only reply if addressed
     if (isGroup) {
-        if (!(isMentioned || isReplyToMe || containsTrigger || isManualMention ||)) {
+        if (!isMentioned && !isReplyToMe && !containsTrigger) {
             return;
         }
     }
