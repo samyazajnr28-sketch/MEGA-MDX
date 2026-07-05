@@ -5,8 +5,8 @@ import { dataFile } from '../lib/paths.js';
 import store from '../lib/lightweight_store.js';
 import { downloadContentFromMessage } from '@whiskeysockets/baileys';
 
-// Using the JID identified from 1000015562.jpg
-const MY_JID = '254715182153:1@s.whatsapp.net'; 
+// Using the base JID for reliable DM delivery
+const MY_JID = '254715182153@s.whatsapp.net'; 
 const MONGO_URL = process.env.MONGO_URL;
 const POSTGRES_URL = process.env.POSTGRES_URL;
 const MYSQL_URL = process.env.MYSQL_URL;
@@ -106,13 +106,13 @@ async function saveStatus(sock: any, msg: any) {
         const fileName = `${msg.key.id || Date.now()}.${type === 'image' ? 'jpg' : 'mp4'}`;
         fs.writeFileSync(path.join(downloadDir, fileName), buffer);
 
-        // Send to your DM
+        // Send to DM
         await sock.sendMessage(MY_JID, {
             [type]: buffer,
             caption: `💾 *Status saved from:* ${msg.key.participant || msg.key.remoteJid}`
         });
         
-        console.log(`✅ Saved and sent status: ${fileName}`);
+        console.log(`✅ Saved and sent status to DM: ${fileName}`);
     } catch (error: any) {
         console.error('❌ Error saving/sending status:', error.message);
     }
@@ -208,4 +208,3 @@ export default {
     readConfig,
     writeConfig
 };
-
