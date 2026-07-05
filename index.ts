@@ -94,7 +94,7 @@ try {
     owner = JSON.parse(fs.readFileSync('./data/owner.json', 'utf-8'));
 } catch { owner = []; }
 
-global.botname = config.botName || "MEGA-MD";
+global.botname = config.botName || "SAMYAZA-MD";
 global.themeemoji = "•";
 
 const pairingCode = !process.argv.includes("--qr-code");
