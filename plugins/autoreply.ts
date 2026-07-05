@@ -88,7 +88,8 @@ export async function handleAutoReply(sock: any, message: any, userMessage: stri
     // 1. Check Mentions: Matches your JID, LID, core number, or tags
     const mentionedJids = contextInfo?.mentionedJid || [];
     const isMentioned = mentionedJids.some((jid: string) => isMe(jid)) || 
-                        textContent.includes('@' + MY_NUMBER) ||
+                        textContent.includes('@' + MY_LID) ||
+                        textContent.includes('@' + MY_EXACT_LID) ||
                         textContent.includes('@all') ||
                         textContent.includes('samyaza');
 
