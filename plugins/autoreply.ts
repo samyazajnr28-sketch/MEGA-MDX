@@ -68,30 +68,27 @@ export async function handleAutoReply(sock: any, message: any, userMessage: stri
     const remoteJid = message.key.remoteJid;
     if (!remoteJid || message.key.fromMe) return;
 
-    // 1. Robust Bot ID extraction
-    const botId = sock.user?.id?.split(':')[0]; // e.g., "2547XXXXXXXX"
     const isGroup = remoteJid.endsWith('@g.us');
+    const botId = sock.user?.id?.split(':')[0] || '';
+    
     const textContent = (userMessage || '').toLowerCase();
     
-    // 2. Extract context safely
-    // Note: The structure varies. Sometimes it's in message.extendedTextMessage, 
-    // sometimes in message.message.extendedTextMessage
-    const msgContent = message.message?.extendedTextMessage || message.message?.buttonsResponseMessage?.contextInfo || {};
-    const contextInfo = msgContent.contextInfo || {};
+    // 1. Check for Mentions (Bot ID or @all/everyone)
+    const contextInfo = message.message?.extendedTextMessage?.contextInfo;
+    const mentionedJid = contextInfo?.mentionedJid || [];
+    const isMentioned = mentionedJid.includes(botId + '@s.whatsapp.net') || 
+                        textContent.includes('@' + botId) ||
+                        textContent.includes('@all') ||
+                        textContent.includes('samyaza');
 
-    // 3. Mentions Logic: Check mentionedJid array
-    const mentionedJids = contextInfo.mentionedJid || [];
-    const isMentioned = mentionedJids.some((jid: string) => jid.split('@')[0].includes(botId));
+    // 2. Check for Replies (if user replied to the bot's previous message)
+    const isReplyToMe = contextInfo?.participant?.includes(botId);
 
-    // 4. Reply Logic: Check if the quoted message was sent by the bot
-    const quotedParticipant = contextInfo.participant?.split('@')[0]?.split(':')[0];
-    const isReplyToMe = (quotedParticipant === botId);
-
-    // 5. Trigger Words
+    // 3. Check for specific trigger words
     const triggerWords = ['samyaza', 'seth'];
     const containsTrigger = triggerWords.some(word => textContent.includes(word));
 
-    // In a group, ONLY proceed if at least one condition is met
+    // Logic: In a group, only proceed if one of the triggers is hit
     if (isGroup) {
         if (!(isMentioned || isReplyToMe || containsTrigger)) {
             return;
@@ -107,6 +104,7 @@ export async function handleAutoReply(sock: any, message: any, userMessage: stri
     }
 }
 
+
 export default {
     command: 'autoreply',
     aliases: ['ai', 'samyaza'],
@@ -121,4 +119,3 @@ export default {
         }, { quoted: message });
     }
 };
-
