@@ -69,27 +69,33 @@ export async function handleAutoReply(sock: any, message: any, userMessage: stri
     if (!remoteJid || message.key.fromMe) return;
 
     const isGroup = remoteJid.endsWith('@g.us');
-    const botId = sock.user?.id?.split(':')[0] || '';
     
+    // Your specific number to identify yourself
+    const MY_NUMBER = '254715182153';
     const textContent = (userMessage || '').toLowerCase();
-    
-    // 1. Check for Mentions (Bot ID or @all/everyone)
     const contextInfo = message.message?.extendedTextMessage?.contextInfo;
-    const mentionedJid = contextInfo?.mentionedJid || [];
-    // Check if any mention includes the bot's core number
-    const isMentioned = mentionedJid.some((jid: string) => jid.split('@')[0].includes(botId)) || 
-                    textContent.includes('@' + botId) ||
-                    textContent.includes('@all') ||
-                    textContent.includes('samyaza');
 
-    // 2. Check for Replies (if user replied to the bot's previous message)
-    const isReplyToMe = contextInfo?.participant?.includes(botId);
+    // --- LOGGING FOR DEBUGGING ---
+    // If it's not working, look at your server logs to see what these print out
+    // console.log("Mentions:", contextInfo?.mentionedJid);
+    // console.log("Quoted Participant:", contextInfo?.participant);
 
-    // 3. Check for specific trigger words
+    // 1. Check Mentions: Does the mention list contain your number?
+    const mentionedJids = contextInfo?.mentionedJid || [];
+    const isMentioned = mentionedJids.some((jid: string) => jid.includes(MY_NUMBER)) || 
+                        textContent.includes('@' + MY_NUMBER) ||
+                        textContent.includes('@all') ||
+                        textContent.includes('samyaza');
+
+    // 2. Check Replies: Is the person you are replying to your number?
+    const quotedParticipant = contextInfo?.participant || '';
+    const isReplyToMe = quotedParticipant.includes(MY_NUMBER);
+
+    // 3. Check trigger words
     const triggerWords = ['samyaza', 'seth'];
     const containsTrigger = triggerWords.some(word => textContent.includes(word));
 
-    // Logic: In a group, only proceed if one of the triggers is hit
+    // Logic: In group, must be mentioned, replied to, or triggered
     if (isGroup) {
         if (!(isMentioned || isReplyToMe || containsTrigger)) {
             return;
@@ -104,6 +110,7 @@ export async function handleAutoReply(sock: any, message: any, userMessage: stri
         await sock.sendMessage(remoteJid, { text: reply }, { quoted: message });
     }
 }
+
 
 
 export default {
