@@ -1,12 +1,10 @@
 import { downloadMediaMessage } from '@whiskeysockets/baileys';
 import { BotContext } from '../types.js';
 
-// Toggle variable
 let statusEnabled = true;
 
 export default [
   {
-    // The main event listener
     event: 'messages.upsert',
     async handler(sock: any, { messages }: any, context: BotContext) {
       if (!statusEnabled) return; // Skip if disabled
@@ -38,7 +36,6 @@ export default [
     }
   },
   {
-    // Command to toggle the status saver
     command: 'savestatus',
     category: 'tools',
     description: 'Enable or disable status saving',
