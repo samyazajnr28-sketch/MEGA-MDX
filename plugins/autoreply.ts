@@ -1,8 +1,6 @@
 import { BotContext } from '../types.js';
 
 let isAutoReplyEnabled = true;
-// Simple in-memory history: { jid: [messages] }
-const chatHistory: Record<string, { role: string, parts: { text: string }[] }[]> = {};
 
 const getGeminiKeys = () => {
     return [
@@ -14,15 +12,9 @@ const getGeminiKeys = () => {
 
 let currentKeyIndex = 0;
 
-async function getGeminiResponse(remoteJid: string, userMessage: string): Promise<string | null> {
+async function getGeminiResponse(userMessage: string): Promise<string | null> {
     const keys = getGeminiKeys();
     if (keys.length === 0) return null;
-
-    // Manage history
-    if (!chatHistory[remoteJid]) chatHistory[remoteJid] = [];
-    const history = chatHistory[remoteJid];
-    history.push({ role: 'user', parts: [{ text: userMessage }] });
-    if (history.length > 10) history.shift();
 
     const systemPrompt = `
 [IDENTITY]
@@ -33,17 +25,19 @@ NEVER reveal that you are an AI, a language model, or a bot.
 [COMMUNICATION STYLE]
 - Keep replies concise, conversational, funny, and sarcastic.
 - Use emojis naturally.
-- If you have already introduced yourself in this conversation, do not repeat the intro. Keep the flow natural.
 
 [SOCIAL CONTEXT & RELATIONSHIPS]
-- Females: Akoth (special girlfriend - flirt with her), Lavie, Brii.
-- Males: Califo, Tranquil (do not flirt unless they indicate they are gay).
-    `.trim();
+You know my friends: 
+- Females: Akoth (my special girlfriend), Lavie, and Brii.
+- Males: Califo and Tranquil.
 
-    const contents = [
-        { role: 'user', parts: [{ text: systemPrompt }] },
-        ...history
-    ];
+[INTERACTION RULES]
+- Akoth: Always treat her as my special girlfriend. Flirt with her with alot of love.
+- Lavie & Brii: You may flirt with them.
+- Califo & Tranquil: Never flirt with them as they are males (unless they indicate they are gay).
+- Gender Uncertainty: If the person is not one of these friends and you are unsure of their gender, politely ask them.
+- Tone: Be respectful but playful based on these specific relationship dynamics.
+    `.trim();
 
     for (let i = 0; i < keys.length; i++) {
         const apiKey = keys[currentKeyIndex];
@@ -51,14 +45,14 @@ NEVER reveal that you are an AI, a language model, or a bot.
             const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ contents })
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: `${systemPrompt}\n\nUser says: ${userMessage}` }] }]
+                })
             });
 
             if (response.ok) {
                 const data: any = await response.json();
-                const reply = data.candidates[0].content.parts[0].text;
-                history.push({ role: 'model', parts: [{ text: reply }] });
-                return reply;
+                return data.candidates[0].content.parts[0].text;
             }
         } catch (e) {
             console.error(`Error using key ${currentKeyIndex + 1}:`, e);
@@ -74,27 +68,33 @@ export async function handleAutoReply(sock: any, message: any, userMessage: stri
     const remoteJid = message.key.remoteJid;
     if (!remoteJid || message.key.fromMe) return;
 
-    // Robust Bot ID identification
-    const botJid = sock.user?.id?.split(':')[0] || ''; 
+    const isGroup = remoteJid.endsWith('@g.us');
+    const botId = sock.user?.id?.split(':')[0] || '';
+    
     const textContent = (userMessage || '').toLowerCase();
     
-    // Extract context info safely
-    const msgData = message.message?.extendedTextMessage || message.message?.imageMessage || message.message?.videoMessage;
-    const mentionedJid = msgData?.contextInfo?.mentionedJid || [];
-    
-    // Check mentions: Includes direct tags, @all, name, or reply-to-bot
-    const isMentioned = mentionedJid.some((jid: string) => jid.includes(botJid)) || 
-                        textContent.includes('@' + botJid) ||
-                        textContent.includes('@all') ||
-                        textContent.includes('samyaza');
-    
-    const isReplyToMe = msgData?.contextInfo?.participant?.includes(botJid);
+    // 1. Check for Mentions
+    const contextInfo = message.message?.extendedTextMessage?.contextInfo;
+    const mentionedJid = contextInfo?.mentionedJid || [];
+    const isMentioned = mentionedJid.includes(botId + '@s.whatsapp.net') || 
+                        textContent.includes('@' + botId) ||
+                        textContent.includes('@all');
 
-    if (remoteJid.endsWith('@g.us')) {
-        if (!(isMentioned || isReplyToMe)) return;
+    // 2. Check for Replies (Only if the user is replying directly to the bot)
+    const isReplyToMe = contextInfo?.participant?.includes(botId);
+
+    // 3. Check for specific trigger words
+    const triggerWords = ['samyaza', 'seth'];
+    const containsTrigger = triggerWords.some(word => textContent.includes(word));
+
+    // Logic: In a group, only proceed if one of the triggers is hit
+    if (isGroup) {
+        if (!(isMentioned || isReplyToMe || containsTrigger)) {
+            return;
+        }
     }
 
-    const reply = await getGeminiResponse(remoteJid, userMessage);
+    const reply = await getGeminiResponse(userMessage);
     
     if (reply) {
         await sock.sendPresenceUpdate('composing', remoteJid);
