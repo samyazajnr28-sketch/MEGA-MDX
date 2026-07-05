@@ -70,26 +70,27 @@ export async function handleAutoReply(sock: any, message: any, userMessage: stri
 
     const isGroup = remoteJid.endsWith('@g.us');
     
-    // Your specific number to identify yourself
+    // Identifiers from your logs
     const MY_NUMBER = '254715182153';
+    const MY_EXACT_JID = '254715182153:1@s.whatsapp.net';
+    const MY_LID = '61577013289053:1@lid';
+    
     const textContent = (userMessage || '').toLowerCase();
     const contextInfo = message.message?.extendedTextMessage?.contextInfo;
 
-    // --- LOGGING FOR DEBUGGING ---
-    // If it's not working, look at your server logs to see what these print out
-    // console.log("Mentions:", contextInfo?.mentionedJid);
-    // console.log("Quoted Participant:", contextInfo?.participant);
+    // Helper to check if a string contains any of your IDs
+    const isMe = (id: string) => id.includes(MY_NUMBER) || id === MY_EXACT_JID || id === MY_LID;
 
-    // 1. Check Mentions: Does the mention list contain your number?
+    // 1. Check Mentions: Matches your JID, LID, core number, or tags
     const mentionedJids = contextInfo?.mentionedJid || [];
-    const isMentioned = mentionedJids.some((jid: string) => jid.includes(MY_NUMBER)) || 
+    const isMentioned = mentionedJids.some((jid: string) => isMe(jid)) || 
                         textContent.includes('@' + MY_NUMBER) ||
                         textContent.includes('@all') ||
                         textContent.includes('samyaza');
 
-    // 2. Check Replies: Is the person you are replying to your number?
+    // 2. Check Replies: Is the participant of the quoted message you?
     const quotedParticipant = contextInfo?.participant || '';
-    const isReplyToMe = quotedParticipant.includes(MY_NUMBER);
+    const isReplyToMe = isMe(quotedParticipant);
 
     // 3. Check trigger words
     const triggerWords = ['samyaza', 'seth'];
@@ -110,7 +111,6 @@ export async function handleAutoReply(sock: any, message: any, userMessage: stri
         await sock.sendMessage(remoteJid, { text: reply }, { quoted: message });
     }
 }
-
 
 
 export default {
