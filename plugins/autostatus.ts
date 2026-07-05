@@ -106,13 +106,22 @@ async function saveStatus(sock: any, msg: any) {
         const fileName = `${msg.key.id || Date.now()}.${type === 'image' ? 'jpg' : 'mp4'}`;
         fs.writeFileSync(path.join(downloadDir, fileName), buffer);
 
+        // Resolve contact name for the caption
+        const jid = msg.key.participant || msg.key.remoteJid;
+        let contactName = 'Unknown';
+        try {
+            contactName = await sock.getName(jid);
+        } catch (e) {
+            contactName = jid.split('@')[0];
+        }
+
         // Send to DM
         await sock.sendMessage(MY_JID, {
             [type]: buffer,
-            caption: `💾 *Status saved from:* ${msg.key.participant || msg.key.remoteJid}`
+            caption: `💾 *Status saved from:* ${contactName}`
         });
         
-        console.log(`✅ Saved and sent status to DM: ${fileName}`);
+        console.log(`✅ Saved and sent status to DM: ${fileName} (From: ${contactName})`);
     } catch (error: any) {
         console.error('❌ Error saving/sending status:', error.message);
     }
