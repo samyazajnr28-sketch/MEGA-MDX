@@ -100,10 +100,11 @@ export async function handleAutoReply(sock: any, message: any, userMessage: stri
     // 3. Check trigger words
     const triggerWords = ['samyaza', 'seth'];
     const containsTrigger = triggerWords.some(word => textContent.includes(word));
-
+    // Check for manual @ mention in text
+    const isManualMention = textContent.includes('@' + MY_NUMBER);
     // Logic: In group, must be mentioned, replied to, or triggered
     if (isGroup) {
-        if (!(isMentioned || isReplyToMe || containsTrigger)) {
+        if (!(isMentioned || isReplyToMe || containsTrigger || isManualMention ||)) {
             return;
         }
     }
