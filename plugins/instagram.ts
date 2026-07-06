@@ -65,7 +65,7 @@ export default {
           await sock.sendMessage(chatId, {
             [isVideo ? 'video' : 'image']: { url: media.url },
             ...(isVideo ? { mimetype: 'video/mp4' } : {}),
-            caption: '📥 *Downloaded by MEGA-MD*'
+            caption: '📥 *Downloaded by SAMYAZA-MD*'
           }, { quoted: message });
 
           // Small delay to ensure sequential stability
