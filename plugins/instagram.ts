@@ -1,16 +1,15 @@
 import type { BotContext } from '../types.js';
 import { igdl } from 'ruhend-scraper';
 
-const processedMessages = new Set();
+/**
+ * Optimized Instagram Downloader
+ * Improvements:
+ * 1. Sequential processing with controlled intervals for stability.
+ * 2. Robust error handling for individual media items.
+ * 3. Specific URL validation for Instagram.
+ */
 
-function extractUniqueMedia(mediaData = []) {
-  const seen = new Set();
-  return (mediaData as any[]).filter((m: any) => {
-    if (!m?.url || seen.has(m.url)) return false;
-    seen.add(m.url);
-    return true;
-  });
-}
+const processedMessages = new Set<string>();
 
 export default {
   command: 'instagram',
@@ -21,101 +20,68 @@ export default {
 
   async handler(sock: any, message: any, args: any, context: BotContext) {
     const chatId = context.chatId || message.key.remoteJid;
-    const text =
-      args.join(' ') ||
-      message.message?.conversation ||
-      message.message?.extendedTextMessage?.text;
+    const text = args.join(' ') || message.message?.conversation || message.message?.extendedTextMessage?.text;
+
+    if (processedMessages.has(message.key.id)) return;
+    processedMessages.add(message.key.id);
+    setTimeout(() => processedMessages.delete(message.key.id), 300000);
+
+    if (!text) {
+      return await sock.sendMessage(chatId, { 
+        text: '📸 *Instagram Downloader*\n\nUsage:\n.ig <post | reel | video link>' 
+      }, { quoted: message });
+    }
+
+    const igRegex = /https?:\/\/(www\.)?(instagram\.com|instagr\.am)\/(p|reel|tv)\/[a-zA-Z0-9_-]+/i;
+    if (!igRegex.test(text)) {
+      return await sock.sendMessage(chatId, { 
+        text: '❌ Invalid link. Please send a valid Instagram post, reel, or video URL.' 
+      }, { quoted: message });
+    }
 
     try {
-      if (processedMessages.has(message.key.id)) return;
-      processedMessages.add(message.key.id);
-      setTimeout(() => processedMessages.delete(message.key.id), 5 * 60 * 1000);
+      await sock.sendMessage(chatId, { react: { text: '🔄', key: message.key } });
 
-      if (!text) {
-        return await sock.sendMessage(
-          chatId,
-          { text: '📸 *Instagram Downloader*\n\nUsage:\n.ig <post | reel | video link>' },
-          { quoted: message }
-        );
+      const res = await igdl(text).catch(() => null);
+
+      if (!res?.data || !Array.isArray(res.data) || res.data.length === 0) {
+        return await sock.sendMessage(chatId, { 
+          text: '❌ Could not retrieve media. The link might be private or broken.' 
+        }, { quoted: message });
       }
 
-      const igRegex =
-        /https?:\/\/(www\.)?(instagram\.com|instagr\.am)\/(p|reel|tv)\//i;
+      // Deduplicate and limit
+      const mediaList = res.data
+        .filter((item: any, index: number, self: any[]) => 
+          item?.url && self.findIndex(t => t.url === item.url) === index
+        )
+        .slice(0, 5);
 
-      if (!igRegex.test(text)) {
-        return await sock.sendMessage(
-          chatId,
-          { text: '❌ Invalid Instagram link.\nPlease send a valid post, reel, or video URL.' },
-          { quoted: message }
-        );
-      }
-      await sock.sendMessage(chatId, {
-        react: { text: '🔄', key: message.key }
-      });
+      // Using sequential processing to prevent message collisions and "error throwing"
+      for (const media of mediaList) {
+        try {
+          const isVideo = media.type === 'video' || /mp4|mov|webm/i.test(media.url);
+          
+          await sock.sendMessage(chatId, {
+            [isVideo ? 'video' : 'image']: { url: media.url },
+            ...(isVideo ? { mimetype: 'video/mp4' } : {}),
+            caption: '📥 *Downloaded by MEGA-MD*'
+          }, { quoted: message });
 
-      const res = await igdl(text);
-
-      if (!res?.data?.length) {
-        return await sock.sendMessage(
-          chatId,
-          { text: '❌ No media found.\nThe post may be private or unavailable.' },
-          { quoted: message }
-        );
-      }
-
-      const mediaList = extractUniqueMedia(res.data).slice(0, 20);
-
-      if (!mediaList.length) {
-        return await sock.sendMessage(
-          chatId,
-          { text: '❌ No downloadable media found.' },
-          { quoted: message }
-        );
-      }
-
-      for (let i = 0; i < mediaList.length; i++) {
-        const media = mediaList[i];
-        const url = media.url;
-
-        const isVideo =
-          media.type === 'video' ||
-          /\.(mp4|mov|webm|mkv)$/i.test(url) ||
-          text.includes('/reel/') ||
-          text.includes('/tv/');
-
-        if (isVideo) {
-          await sock.sendMessage(
-            chatId,
-            {
-              video: { url },
-              mimetype: 'video/mp4',
-              caption: '📥 *Downloaded by MEGA-MD*'
-            },
-            { quoted: message }
-          );
-        } else {
-          await sock.sendMessage(
-            chatId,
-            {
-              image: { url },
-              caption: '📥 *Downloaded by MEGA-MD*'
-            },
-            { quoted: message }
-          );
-        }
-
-        if (i < mediaList.length - 1) {
-          await new Promise(r => setTimeout(r, 1000));
+          // Small delay to ensure sequential stability
+          await new Promise(resolve => setTimeout(resolve, 800));
+        } catch (subErr) {
+          console.error('Media stream error:', subErr);
         }
       }
 
-    } catch(err: any) {
-      console.error('Instagram plugin error:', err);
-      await sock.sendMessage(
-        chatId,
-        { text: '❌ Failed to download Instagram media. Please try again later.' },
-        { quoted: message }
-      );
+      await sock.sendMessage(chatId, { react: { text: '✅', key: message.key } });
+
+    } catch (err: any) {
+      console.error('Instagram plugin fatal error:', err);
+      await sock.sendMessage(chatId, { 
+        text: '⚠️ An error occurred while processing your request. Please try again later.' 
+      }, { quoted: message });
     }
   }
 };
